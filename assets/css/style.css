@@ -69,10 +69,38 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 #header .profile img {
+  /* profile size variable for easy responsive scaling */
+  --profile-size: 160px;
   margin: 15px auto;
   display: block;
-  width: 120px;
+  width: var(--profile-size);
+  height: var(--profile-size);
+  object-fit: cover;
+  /* focus the crop on the upper part of the image so face is visible */
+  object-position: center 20%;
   border: 8px solid #2c2f3f;
+  border-radius: 50%;
+}
+
+/* Responsive profile sizes */
+@media (max-width: 1199px) {
+  #header .profile img {
+    --profile-size: 140px;
+  }
+}
+
+@media (max-width: 767px) {
+  #header .profile img {
+    --profile-size: 120px;
+    /* slightly smaller border on small screens */
+    border-width: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  #header .profile img {
+    --profile-size: 100px;
+  }
 }
 
 #header .profile h1 {
