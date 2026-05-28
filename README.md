@@ -1,6 +1,6 @@
 # Naga Hanuma Kanchumati - Professional Portfolio & 3D AI Agent
 
-Welcome to the repository of **Naga Hanuma Kanchumati's** developer portfolio. This project showcases enterprise-grade python/Java backend engineering, API security skills, and interactive Generative AI modules, built entirely on lightweight static files, open-source technologies, and free-tier AI APIs.
+Welcome to the repository of **Naga Hanuma Kanchumati's** developer portfolio. This project showcases enterprise-grade python/FastAPI backend engineering, API security skills, and interactive Generative AI modules, built entirely on lightweight static files, open-source technologies, and free-tier AI APIs.
 
 ---
 
