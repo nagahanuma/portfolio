@@ -5,8 +5,10 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // API endpoint config
-    const BACKEND_URL = 'http://localhost:10000/api/chat';
+    // API endpoint config: Automatically uses localhost for local testing, otherwise falls back to production Render URL
+    const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? 'http://localhost:10000/api/chat'
+        : 'https://portfolio-backend-twmb.onrender.com/api/chat';
     
     // UI Elements
     const agentContainer = document.getElementById('ai-agent-container');
