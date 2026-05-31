@@ -415,6 +415,7 @@ p {
   top: 10px;
   left: 15px;
   right: auto;
+  pointer-events: auto;
 }
 
 #ai-agent-container.chat-active #chat-toggle-btn {
