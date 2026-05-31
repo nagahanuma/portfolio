@@ -54,19 +54,11 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.style.cursor = 'pointer';
         canvasContainer.appendChild(canvas);
 
-        // Trigger 3D spin or toggle chat on click/tap
+        // Trigger 3D spin on click/tap (works in both floating and open states)
         canvas.addEventListener('click', () => {
-            if (!agentContainer.classList.contains('chat-active')) {
-                // If chat is closed, clicking the avatar opens it!
-                agentContainer.classList.add('chat-active');
-                if (chatInput) chatInput.focus();
-                scrollToBottom();
-            } else {
-                // If chat is open, clicking the avatar triggers the 360 spin!
-                if (!isSpinning) {
-                    isSpinning = true;
-                    spinAngle = 0;
-                }
+            if (!isSpinning) {
+                isSpinning = true;
+                spinAngle = 0;
             }
         });
 
