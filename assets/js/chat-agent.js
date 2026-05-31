@@ -43,12 +43,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let targetHeadRotation = { x: 0, y: 0 };
     let isInputFocused = false;
     let clock = new THREE.Clock();
+    let isSpinning = false;
+    let spinAngle = 0;
+    const spinSpeed = 0.15;
 
     function init3D() {
         // Create canvas
         const canvas = document.createElement('canvas');
         canvas.id = 'avatar-canvas';
+        canvas.style.cursor = 'pointer';
         canvasContainer.appendChild(canvas);
+
+        // Trigger 3D spin on click/tap
+        canvas.addEventListener('click', () => {
+            if (!isSpinning) {
+                isSpinning = true;
+                spinAngle = 0;
+            }
+        });
 
         // Scene
         scene = new THREE.Scene();
@@ -411,6 +423,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Idle Floating & Breathing Effects
         if (avatarGroup) {
             avatarGroup.position.y = -0.1 + Math.sin(time * 1.5) * 0.04;
+            
+            // Y-axis spin animation state handling
+            if (isSpinning) {
+                spinAngle += spinSpeed;
+                if (spinAngle >= Math.PI * 2) {
+                    spinAngle = 0;
+                    isSpinning = false;
+                    avatarGroup.rotation.y = 0;
+                } else {
+                    avatarGroup.rotation.y = spinAngle;
+                }
+            } else {
+                avatarGroup.rotation.y = 0;
+            }
             
             // If GLTF model is active, do a subtle float rotation
             if (gltfModel && gltfModel.visible) {
