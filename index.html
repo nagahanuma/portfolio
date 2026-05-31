@@ -92,7 +92,7 @@
 
         <div class="section-title">
           <h2>About Me</h2>
-          <p>Solution-oriented Java Backend Developer with 2+ years of experience specializing in Spring Boot, REST
+          <p>Solution-oriented Java Backend Developer with 4+ years of experience specializing in Spring Boot, REST
             API development at Tata Consultancy Services. Proven track record in designing
             high-performance, secure, and scalable microservices used by major banking and government clients. Skilled
             in API design, Gradle/Maven build systems, and performance tuning. Experienced in Python and Generative AI,
@@ -377,7 +377,7 @@
     particlesJS("particles-js", {
       "particles": {
         "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
-        "color": { "value": "#149ddd" },
+        "color": { "value": "# 49ddd" },
         "shape": { "type": "circle" },
         "opacity": { "value": 0.5, "random": false },
         "size": { "value": 3, "random": true },
@@ -417,9 +417,18 @@
           <h4>Robot Assistant</h4>
           <div class="status">Online</div>
         </div>
-        <button id="chat-close-btn">
-          <i class="bx bx-x"></i>
-        </button>
+        <div class="header-actions">
+          <select id="chat-lang-select" title="Change Language">
+            <option value="en-US">EN</option>
+            <option value="te-IN">తెలుగు</option>
+            <option value="hi-IN">हिंदी</option>
+            <option value="ta-IN">தமிழ்</option>
+            <option value="kn-IN">ಕನ್ನಡ</option>
+          </select>
+          <button id="chat-close-btn">
+            <i class="bx bx-x"></i>
+          </button>
+        </div>
       </div>
       
       <div id="chat-messages">
@@ -431,6 +440,9 @@
       </div>
       
       <form id="chat-form">
+        <button type="button" id="chat-mic-btn" title="Voice Input">
+          <i class="bx bx-microphone"></i>
+        </button>
         <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" required>
         <button type="submit" id="chat-send-btn">
           <i class="bx bx-send"></i>

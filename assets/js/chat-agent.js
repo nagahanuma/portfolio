@@ -18,6 +18,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatInput = document.getElementById('chat-input');
     const chatForm = document.getElementById('chat-form');
     const chatMessages = document.getElementById('chat-messages');
+    const chatMicBtn = document.getElementById('chat-mic-btn');
+    const chatLangSelect = document.getElementById('chat-lang-select');
+
+    // Web Speech API variables
+    let recognition = null;
+    let isSpeechUnlocked = false;
+    let shouldSpeakResponse = false;
 
     if (!agentContainer || !canvasContainer) {
         console.error("AI Agent UI elements not found in DOM.");
@@ -196,16 +203,30 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Crop/Zoom texture to display ONLY the eye core
         const visorTexture = logoTexture.clone();
-        visorTexture.repeat.set(0.5, 0.5);
-        visorTexture.offset.set(0.25, 0.25);
-        visorTexture.needsUpdate = true;
         
         const visorScreenGeom = new THREE.CircleGeometry(0.23, 32);
         const visorScreenMat = new THREE.MeshBasicMaterial({
-            map: visorTexture,
+            color: 0x111111, // Dark background fallback until texture loads
             transparent: false,
             side: THREE.DoubleSide
         });
+
+        // Delay assigning and updating the texture until the image actually loads
+        if (logoTexture.image) {
+            const updateVisorTexture = () => {
+                visorTexture.repeat.set(0.5, 0.5);
+                visorTexture.offset.set(0.25, 0.25);
+                visorTexture.needsUpdate = true;
+                visorScreenMat.map = visorTexture;
+                visorScreenMat.needsUpdate = true;
+            };
+
+            if (logoTexture.image.complete) {
+                updateVisorTexture();
+            } else {
+                logoTexture.image.addEventListener('load', updateVisorTexture);
+            }
+        }
         const visorScreen = new THREE.Mesh(visorScreenGeom, visorScreenMat);
         visorScreen.position.set(0, 0, 0.376); // Placed on the face of the cylinder
         proceduralDroneGroup.add(visorScreen);
@@ -469,6 +490,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chatForm) {
         chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            // Cancel any ongoing text-to-speech
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+
+            // Stop recognition if it's listening to prevent overlap
+            if (recognition && chatMicBtn && chatMicBtn.classList.contains('listening')) {
+                recognition.stop();
+            }
             
             const messageText = chatInput.value.trim();
             if (!messageText) return;
@@ -483,6 +514,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const typingIndicator = appendTypingIndicator();
             scrollToBottom();
 
+            // Set a timeout to notify user if the server is cold-starting (Render free tier spin-down)
+            let wakeUpWarning = null;
+            const wakeUpTimeout = setTimeout(() => {
+                wakeUpWarning = appendSystemMessage(
+                    "Please wait a moment, the AI server is waking up... (This can take up to 40 seconds on the free tier)"
+                );
+            }, 4000); // Trigger after 4 seconds of waiting
+
             try {
                 // Asynchronous fetch call to backend API
                 const response = await fetch(BACKEND_URL, {
@@ -490,10 +529,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ message: messageText })
+                    body: JSON.stringify({ 
+                        message: messageText,
+                        language: chatLangSelect ? chatLangSelect.value : 'en-US'
+                    })
                 });
 
-                // Remove typing indicator
+                // Clear timeout and remove warning if it was shown
+                clearTimeout(wakeUpTimeout);
+                if (wakeUpWarning) {
+                    removeSystemMessage(wakeUpWarning);
+                }
                 removeTypingIndicator(typingIndicator);
 
                 if (!response.ok) {
@@ -525,11 +571,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const data = await response.json();
                 appendMessage(data.response, 'agent');
+                if (shouldSpeakResponse) {
+                    speakText(data.response);
+                    shouldSpeakResponse = false; // Reset the flag
+                }
+
+                // Handle custom UI action triggers (e.g. WhatsApp redirection)
+                if (data.action === 'redirect_whatsapp') {
+                    // Slight delay so the user can read the bubble and start hearing the audio before the popup locks the thread
+                    setTimeout(() => {
+                        const confirmRedirect = confirm(data.response);
+                        if (confirmRedirect) {
+                            window.open("https://wa.me/916304001448", "_blank");
+                        }
+                    }, 800);
+                }
 
             } catch (error) {
                 console.error("Failed to fetch response from backend:", error);
                 
-                // Remove typing indicator
+                // Clear timeout and remove warning if it was shown
+                clearTimeout(wakeUpTimeout);
+                if (wakeUpWarning) {
+                    removeSystemMessage(wakeUpWarning);
+                }
                 removeTypingIndicator(typingIndicator);
                 
                 // Display error message to user
@@ -540,6 +605,204 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             scrollToBottom();
+        });
+    }
+
+    // -----------------------------------------------------------------
+    // WEB SPEECH API (STT & TTS) LOGIC
+    // -----------------------------------------------------------------
+
+    // Initialize voice interaction APIs (complies with mobile user gesture requirement)
+    function initSpeech() {
+        if (isSpeechUnlocked) return;
+
+        // 1. Mobile SpeechSynthesis unlock (issue a silent utterance)
+        if (window.speechSynthesis) {
+            try {
+                const silentUtterance = new SpeechSynthesisUtterance('');
+                window.speechSynthesis.speak(silentUtterance);
+            } catch (e) {
+                console.warn("Failed to issue silent utterance:", e);
+            }
+        }
+
+        // 2. Initialize Speech Recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = chatLangSelect ? chatLangSelect.value : 'en-US';
+
+            recognition.onstart = () => {
+                if (chatMicBtn) {
+                    chatMicBtn.classList.add('listening');
+                    const icon = chatMicBtn.querySelector('i');
+                    if (icon) {
+                        icon.className = 'bx bx-microphone'; // Keep mic icon to indicate it is active
+                    }
+                }
+                if (chatForm) {
+                    chatForm.classList.add('listening-active');
+                }
+                if (chatInput) {
+                    chatInput.placeholder = "Listening... Speak clearly!";
+                    chatInput.readOnly = true;
+                }
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                if (chatInput) {
+                    chatInput.value = transcript;
+                }
+                
+                // Stop recognition immediately
+                recognition.stop();
+
+                // Auto-submit the form if transcription is not empty
+                if (chatForm && transcript.trim()) {
+                    shouldSpeakResponse = true; // Flag that response should be read out loud
+                    // Dispatch submit event to trigger form listener
+                    chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                let messageText = "Speech recognition error: " + event.error;
+                if (event.error === 'not-allowed') {
+                    messageText = "Microphone access blocked. Please click the lock/settings icon next to your URL bar and allow microphone permissions.";
+                } else if (event.error === 'no-speech') {
+                    messageText = "No speech detected. Please speak clearly into your microphone.";
+                } else if (event.error === 'network') {
+                    messageText = "Network error. Speech recognition requires an active internet connection.";
+                }
+                appendSystemMessage(messageText);
+                cleanupMicState();
+            };
+
+            recognition.onend = () => {
+                cleanupMicState();
+            };
+        } else {
+            console.warn("SpeechRecognition is not supported in this browser.");
+            if (chatMicBtn) {
+                chatMicBtn.title = "Speech Recognition not supported";
+                chatMicBtn.style.opacity = '0.5';
+                chatMicBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        isSpeechUnlocked = true;
+    }
+
+    function cleanupMicState() {
+        if (chatMicBtn) {
+            chatMicBtn.classList.remove('listening');
+            const icon = chatMicBtn.querySelector('i');
+            if (icon) {
+                icon.className = 'bx bx-microphone';
+            }
+        }
+        if (chatForm) {
+            chatForm.classList.remove('listening-active');
+        }
+        if (chatInput) {
+            chatInput.placeholder = "Type a message...";
+            chatInput.readOnly = false;
+        }
+    }
+
+    // TTS implementation prioritizing selected language and English female voices
+    function speakText(text) {
+        if (!window.speechSynthesis) return;
+
+        // Cancel any active speech synthesis
+        window.speechSynthesis.cancel();
+
+        // Strip HTML/markdown styling tags if present
+        const cleanText = text.replace(/<\/?[^>]+(>|$)/g, "");
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+
+        const currentLang = chatLangSelect ? chatLangSelect.value : 'en-US';
+        utterance.lang = currentLang;
+
+        // Fetch voices and find a matching voice
+        const voices = window.speechSynthesis.getVoices();
+        
+        let selectedVoice = null;
+        const langPrefix = currentLang.split('-')[0]; // 'en', 'te', 'hi', 'ta', 'kn'
+
+        // If it's a regional language, search for a voice matching that prefix (e.g. 'te' for Telugu)
+        if (langPrefix !== 'en') {
+            selectedVoice = voices.find(v => v.lang.startsWith(langPrefix));
+        }
+
+        // If it's English, or if no regional voice was found, fall back to English female voice
+        if (!selectedVoice) {
+            const femaleKeywords = ['samantha', 'zira', 'hazel', 'karen', 'victoria', 'female', 'google us english', 'microsoft sabina', 'google uk english female', 'en-us'];
+            for (let keyword of femaleKeywords) {
+                selectedVoice = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes(keyword));
+                if (selectedVoice) break;
+            }
+        }
+
+        // Final fallback to any voice matching language prefix or first available voice
+        if (!selectedVoice) {
+            selectedVoice = voices.find(v => v.lang.startsWith(langPrefix)) || voices[0] || null;
+        }
+
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // Set up Microphone Button interaction
+    if (chatMicBtn) {
+        chatMicBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log("Microphone button clicked. Checking environment...");
+
+            // Security check: web speech requires HTTPS or localhost
+            if (window.location.protocol === 'file:') {
+                alert("Security Restriction: Browsers block microphone access (Speech Recognition) when opening local HTML files directly via file:// protocol. Please run a local web server (e.g. VS Code Live Server, python -m http.server, or npm) to test voice features on http://localhost.");
+                console.warn("Speech Recognition blocked due to file:// protocol.");
+                return;
+            }
+            
+            // First tap initializes and unlocks Speech APIs (user-gesture requirement)
+            initSpeech();
+
+            if (!recognition) {
+                alert("Speech recognition is not supported in this browser. Please try Chrome, Edge, or Safari.");
+                return;
+            }
+
+            // Toggle listening state
+            if (chatMicBtn.classList.contains('listening')) {
+                console.log("Stopping Speech Recognition...");
+                recognition.stop();
+            } else {
+                console.log("Starting Speech Recognition...");
+                // Cancel any ongoing speaking response first
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+                
+                try {
+                    // Update language dynamically matching selection dropdown
+                    if (recognition && chatLangSelect) {
+                        recognition.lang = chatLangSelect.value;
+                    }
+                    recognition.start();
+                } catch (err) {
+                    console.error("Failed to start speech recognition:", err);
+                }
+            }
         });
     }
 
@@ -586,6 +849,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // Helper: Auto-scroll Messages Body
     function scrollToBottom() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Helper: Append a system/status message (not user/agent bubble)
+    function appendSystemMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message system-status';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble system-bubble';
+        bubble.textContent = text;
+        bubble.style.fontStyle = 'italic';
+        bubble.style.opacity = '0.7';
+        bubble.style.fontSize = '12px';
+        bubble.style.textAlign = 'center';
+        bubble.style.width = '100%';
+        bubble.style.margin = '8px 0';
+        bubble.style.color = '#94a3b8'; // Muted grey text
+        
+        messageDiv.appendChild(bubble);
+        chatMessages.appendChild(messageDiv);
+        scrollToBottom();
+        return messageDiv;
+    }
+
+    // Helper: Remove system/status message
+    function removeSystemMessage(element) {
+        if (element && element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
     }
 
     // Initialize the Three.js canvas once everything is loaded

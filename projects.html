@@ -184,9 +184,18 @@
         <h4>Robot Assistant</h4>
         <div class="status">Online</div>
       </div>
-      <button id="chat-close-btn">
-        <i class="bx bx-x"></i>
-      </button>
+      <div class="header-actions">
+        <select id="chat-lang-select" title="Change Language">
+          <option value="en-US">EN</option>
+          <option value="te-IN">తెలుగు</option>
+          <option value="hi-IN">हिंदी</option>
+          <option value="ta-IN">தமிழ்</option>
+          <option value="kn-IN">ಕನ್ನಡ</option>
+        </select>
+        <button id="chat-close-btn">
+          <i class="bx bx-x"></i>
+        </button>
+      </div>
     </div>
     
     <div id="chat-messages">
@@ -198,6 +207,9 @@
     </div>
     
     <form id="chat-form">
+      <button type="button" id="chat-mic-btn" title="Voice Input">
+        <i class="bx bx-microphone"></i>
+      </button>
       <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" required>
       <button type="submit" id="chat-send-btn">
         <i class="bx bx-send"></i>
