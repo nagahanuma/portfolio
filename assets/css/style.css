@@ -488,36 +488,7 @@ p {
   color: #fff;
 }
 
-#chat-header .header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 
-#chat-lang-select {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 12px;
-  padding: 4px 8px;
-  outline: none;
-  cursor: pointer;
-  font-family: "Inter", sans-serif;
-  transition: all 0.3s ease;
-  font-weight: 500;
-}
-
-#chat-lang-select:hover {
-  border-color: #00e5ff;
-  background: rgba(0, 229, 255, 0.05);
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.15);
-}
-
-#chat-lang-select option {
-  background: #0b0f19;
-  color: #fff;
-}
 
 #chat-messages {
   flex: 1;
